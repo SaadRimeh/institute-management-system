@@ -1,19 +1,25 @@
-﻿# Institute Management Backend
+# Institute Management System API
 
-Production-ready backend built with:
+A practical, production-ready backend for managing day-to-day institute operations.
+It is designed to keep the codebase clean, scalable, and easy to maintain while covering the core academic and administrative flows.
 
-- Node.js (ES Modules only)
+## What This Project Covers
+
+- Authentication with JWT and role-based access control (`admin`, `teacher`, `student`)
+- Student and teacher lifecycle management
+- Course management and enrollments
+- Attendance tracking and grading
+- Financial flows (student payments and teacher payments)
+- Internal notifications and dashboard reporting
+
+## Tech Stack
+
+- Node.js (ES Modules)
 - Express.js
-- MongoDB (Mongoose)
-- JWT auth + role-based access
-
-## Tech Highlights
-
-- Clean modular architecture
-- Centralized validation and error handling
-- Login with secure 6-digit code (hashed + indexed)
-- RBAC for `admin`, `teacher`, `student`
-- Payment, attendance, grade, and notification flows
+- MongoDB + Mongoose
+- Zod for request validation
+- JWT for authentication
+- Helmet, CORS, and rate limiting for API hardening
 
 ## Project Structure
 
@@ -32,122 +38,76 @@ src/
 `-- server.js
 ```
 
-## Setup
+## Getting Started
 
-1. Install dependencies:
+### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
-2. Create `.env` from `.env.example` and fill values.
+### 2. Configure environment variables
 
-3. Seed initial admin:
+Create a `.env` file using `.env.example` as a template.
+
+```env
+PORT=5000
+MONGO_URI=mongodb://127.0.0.1:27017/institute_management
+JWT_SECRET=replace_with_strong_secret
+JWT_EXPIRES_IN=7d
+LOGIN_CODE_PEPPER=replace_with_pepper
+NODE_ENV=development
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX=300
+ADMIN_NAME=System Admin
+ADMIN_CONTACT=admin-contact
+ADMIN_CODE=123456
+```
+
+### 3. Seed the initial admin account
 
 ```bash
 npm run seed:admin
 ```
 
-4. Run development server:
+### 4. Run the server
 
 ```bash
 npm run dev
 ```
 
-## Auth Flow
+Server entry point: `src/server.js`
 
-- Admin/Teacher/Student accounts use a 6-digit login code.
-- Login endpoint: `POST /api/v1/auth/login`
-- Returns JWT token for authenticated requests.
+## Available Scripts
 
-## Required API Endpoints
+- `npm run dev` - start server in development mode with `nodemon`
+- `npm start` - run server with Node.js
+- `npm run check` - syntax check for `src/server.js`
+- `npm run seed:admin` - create or update the initial admin account
 
-### Auth
+## API Overview
 
-- `POST /api/v1/auth/login`
-- `GET /api/v1/auth/me`
+Base URL pattern:
 
-### Admin - Students
+- `/api/v1/auth`
+- `/api/v1/admin`
+- `/api/v1/teacher`
+- `/api/v1/student`
 
-- `POST /api/v1/admin/students`
-- `GET /api/v1/admin/students`
-- `GET /api/v1/admin/students/:id`
-- `PUT /api/v1/admin/students/:id`
-- `DELETE /api/v1/admin/students/:id`
+Health check endpoint:
 
-### Admin - Teachers
+- `GET /health`
 
-- `POST /api/v1/admin/teachers`
-- `GET /api/v1/admin/teachers`
-- `GET /api/v1/admin/teachers/:id`
-- `PUT /api/v1/admin/teachers/:id`
-- `DELETE /api/v1/admin/teachers/:id`
+Authentication flow:
 
-### Admin - Courses
+1. Login with a 6-digit code via `POST /api/v1/auth/login`
+2. Receive JWT token
+3. Send token in `Authorization: Bearer <token>` for protected routes
 
-- `POST /api/v1/admin/courses`
-- `GET /api/v1/admin/courses`
-- `GET /api/v1/admin/courses/:id`
-- `PUT /api/v1/admin/courses/:id`
-- `DELETE /api/v1/admin/courses/:id`
+## Design Notes
 
-### Admin - Enrollments
+- The architecture follows a clear separation of concerns: routes -> controllers -> services -> models.
+- Validation and error handling are centralized to keep behavior consistent across all modules.
+- Module registration is centralized in `src/modules/index.js` to keep route composition clean.
 
-- `POST /api/v1/admin/enrollments`
 
-### Admin - Payments
-
-- `POST /api/v1/admin/payments`
-- `GET /api/v1/admin/payments/:studentId`
-
-### Admin - Teacher Payments
-
-- `POST /api/v1/admin/teacher-payments`
-
-### Admin - Notifications
-
-- `POST /api/v1/admin/notifications`
-
-### Admin - Attendance
-
-- `GET /api/v1/admin/attendance/:studentId`
-
-### Admin Dashboard
-
-- `GET /api/v1/admin/dashboard`
-
-### Teacher
-
-- `GET /api/v1/teacher/courses`
-- `GET /api/v1/teacher/courses/:courseId/students`
-- `POST /api/v1/teacher/notifications`
-- `POST /api/v1/teacher/grades`
-- `POST /api/v1/teacher/attendance`
-
-### Student
-
-- `GET /api/v1/student/profile`
-- `GET /api/v1/student/courses`
-- `GET /api/v1/student/courses/:id`
-- `GET /api/v1/student/notifications`
-
-## Docs and Postman
-
-Generated docs files:
-
-- `docs/API_ENDPOINTS.md`
-- `docs/postman/Institute-Management.openapi.json`
-- `docs/postman/Institute-Management.postman_collection.json`
-- `docs/postman/Institute-Management.postman_environment.json`
-
-Import order in Postman:
-
-1. Import environment file: `docs/postman/Institute-Management.postman_environment.json`
-2. Import collection file: `docs/postman/Institute-Management.postman_collection.json`
-3. If needed, import OpenAPI file instead: `docs/postman/Institute-Management.openapi.json`
-
-Recommended test flow:
-
-1. Run `POST /api/v1/auth/login` and copy `token` to environment variable `token`.
-2. Create teacher, student, and course; set `teacherId`, `studentId`, and `courseId`.
-3. Continue with enrollments, payments, notifications, attendance, and grade endpoints.
