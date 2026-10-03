@@ -21,15 +21,20 @@ export const createTeacherNotificationSchema = z.object({
 });
 
 export const createTeacherGradeSchema = z.object({
-  body: z.object({
-    courseId: objectIdSchema,
-    studentId: objectIdSchema,
-    examName: z.string().min(2).max(120),
-    score: z.number().nonnegative(),
-    maxScore: z.number().positive(),
-    examDate: z.string().datetime().optional(),
-    notes: z.string().max(500).optional(),
-  }),
+  body: z
+    .object({
+      courseId: objectIdSchema,
+      studentId: objectIdSchema,
+      examName: z.string().min(2).max(120),
+      score: z.number().nonnegative(),
+      maxScore: z.number().positive(),
+      examDate: z.string().datetime().optional(),
+      notes: z.string().max(500).optional(),
+    })
+    .refine((data) => data.score <= data.maxScore, {
+      message: "Score cannot exceed maxScore",
+      path: ["score"],
+    }),
   params: z.object({}).passthrough(),
   query: z.object({}).passthrough(),
 });

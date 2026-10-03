@@ -3,7 +3,7 @@ import { sendSuccess } from "../utils/apiResponse.js";
 import { getCurrentUser, loginWithCode } from "../services/auth.service.js";
 
 export const login = asyncHandler(async (req, res) => {
-  const result = await loginWithCode(req.body.loginCode);
+  const result = await loginWithCode(req.body.loginCode, req.body.identifier);
   sendSuccess(res, result);
 });
 

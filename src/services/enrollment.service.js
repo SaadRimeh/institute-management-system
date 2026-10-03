@@ -18,6 +18,11 @@ export const createEnrollment = async ({ studentId, courseId, coursePrice }) => 
     throw new AppError("Course not found", 404);
   }
 
+  const existing = await Enrollment.findOne({ student: studentId, course: courseId });
+  if (existing) {
+    throw new AppError("Student is already enrolled in this course", 409);
+  }
+
   const price = coursePrice ?? course.price;
 
   const enrollment = await Enrollment.create({

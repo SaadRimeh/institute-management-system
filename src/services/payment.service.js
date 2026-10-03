@@ -6,6 +6,8 @@ import { User } from "../models/user.model.js";
 import { AppError } from "../utils/appError.js";
 import { PAYMENT_KINDS, ROLES } from "../utils/constants.js";
 
+import { runInTransaction } from "../utils/transaction.js";
+
 export const createStudentPayment = async ({
   studentId,
   courseId,
@@ -13,35 +15,44 @@ export const createStudentPayment = async ({
   note,
   createdBy,
 }) => {
-  const enrollment = await Enrollment.findOne({
-    student: studentId,
-    course: courseId,
+  return runInTransaction(async (session) => {
+    const query = Enrollment.findOne({
+      student: studentId,
+      course: courseId,
+    });
+    if (session) query.session(session);
+    const enrollment = await query;
+
+    if (!enrollment) {
+      throw new AppError("Enrollment not found for this student and course", 404);
+    }
+
+    const nextPaid = enrollment.paidAmount + amount;
+    if (nextPaid > enrollment.coursePrice) {
+      throw new AppError("Payment exceeds remaining balance", 400);
+    }
+
+    enrollment.paidAmount = nextPaid;
+    enrollment.remainingBalance = Math.max(enrollment.coursePrice - nextPaid, 0);
+    await enrollment.save({ session: session || undefined });
+
+    const [payment] = await Payment.create(
+      [
+        {
+          kind: PAYMENT_KINDS.STUDENT_PAYMENT,
+          student: studentId,
+          course: courseId,
+          enrollment: enrollment.id,
+          amount,
+          note: note || "",
+          createdBy,
+        },
+      ],
+      { session: session || undefined },
+    );
+
+    return { payment, enrollment };
   });
-
-  if (!enrollment) {
-    throw new AppError("Enrollment not found for this student and course", 404);
-  }
-
-  const nextPaid = enrollment.paidAmount + amount;
-  if (nextPaid > enrollment.coursePrice) {
-    throw new AppError("Payment exceeds remaining balance", 400);
-  }
-
-  enrollment.paidAmount = nextPaid;
-  enrollment.remainingBalance = Math.max(enrollment.coursePrice - nextPaid, 0);
-  await enrollment.save();
-
-  const payment = await Payment.create({
-    kind: PAYMENT_KINDS.STUDENT_PAYMENT,
-    student: studentId,
-    course: courseId,
-    enrollment: enrollment.id,
-    amount,
-    note: note || "",
-    createdBy,
-  });
-
-  return { payment, enrollment };
 };
 
 export const getStudentPayments = async (studentId) => {
@@ -77,62 +88,76 @@ export const createTeacherSalaryPayment = async ({
   note,
   createdBy,
 }) => {
-  const [teacher, course] = await Promise.all([
-    User.findOne({ _id: teacherId, role: ROLES.TEACHER, isActive: true }),
-    Course.findOne({ _id: courseId, isActive: true }),
-  ]);
+  return runInTransaction(async (session) => {
+    const teacherQuery = User.findOne({ _id: teacherId, role: ROLES.TEACHER, isActive: true });
+    const courseQuery = Course.findOne({ _id: courseId, isActive: true });
+    if (session) {
+      teacherQuery.session(session);
+      courseQuery.session(session);
+    }
+    const [teacher, course] = await Promise.all([teacherQuery, courseQuery]);
 
-  if (!teacher) {
-    throw new AppError("Teacher not found", 404);
-  }
+    if (!teacher) {
+      throw new AppError("Teacher not found", 404);
+    }
 
-  if (!course) {
-    throw new AppError("Course not found", 404);
-  }
+    if (!course) {
+      throw new AppError("Course not found", 404);
+    }
 
-  if (!course.assignedTeacher || String(course.assignedTeacher) !== String(teacher.id)) {
-    throw new AppError("Teacher is not assigned to this course", 400);
-  }
+    if (!course.assignedTeacher || String(course.assignedTeacher) !== String(teacher.id)) {
+      throw new AppError("Teacher is not assigned to this course", 400);
+    }
 
-  const totalPaidResult = await Payment.aggregate([
-    {
-      $match: {
-        kind: PAYMENT_KINDS.TEACHER_SALARY,
-        teacher: new mongoose.Types.ObjectId(teacherId),
-        course: new mongoose.Types.ObjectId(courseId),
+    const aggregateOptions = session ? { session } : {};
+    const totalPaidResult = await Payment.aggregate(
+      [
+        {
+          $match: {
+            kind: PAYMENT_KINDS.TEACHER_SALARY,
+            teacher: new mongoose.Types.ObjectId(teacherId),
+            course: new mongoose.Types.ObjectId(courseId),
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" },
+          },
+        },
+      ],
+      aggregateOptions,
+    );
+
+    const paidBefore = totalPaidResult[0]?.total || 0;
+    const paidAfter = paidBefore + amount;
+
+    if (course.teacherSalary > 0 && paidAfter > course.teacherSalary) {
+      throw new AppError("Payment exceeds configured teacher salary for this course", 400);
+    }
+
+    const [payment] = await Payment.create(
+      [
+        {
+          kind: PAYMENT_KINDS.TEACHER_SALARY,
+          teacher: teacherId,
+          course: courseId,
+          amount,
+          note: note || "",
+          createdBy,
+        },
+      ],
+      { session: session || undefined },
+    );
+
+    return {
+      payment,
+      summary: {
+        teacherSalary: course.teacherSalary,
+        paidAmount: paidAfter,
+        remainingSalary: Math.max((course.teacherSalary || 0) - paidAfter, 0),
       },
-    },
-    {
-      $group: {
-        _id: null,
-        total: { $sum: "$amount" },
-      },
-    },
-  ]);
-
-  const paidBefore = totalPaidResult[0]?.total || 0;
-  const paidAfter = paidBefore + amount;
-
-  if (course.teacherSalary > 0 && paidAfter > course.teacherSalary) {
-    throw new AppError("Payment exceeds configured teacher salary for this course", 400);
-  }
-
-  const payment = await Payment.create({
-    kind: PAYMENT_KINDS.TEACHER_SALARY,
-    teacher: teacherId,
-    course: courseId,
-    amount,
-    note: note || "",
-    createdBy,
+    };
   });
-
-  return {
-    payment,
-    summary: {
-      teacherSalary: course.teacherSalary,
-      paidAmount: paidAfter,
-      remainingSalary: Math.max((course.teacherSalary || 0) - paidAfter, 0),
-    },
-  };
 };
 

@@ -26,6 +26,8 @@ const userSchema = new mongoose.Schema(
     },
     primaryContact: { type: String, required: true, trim: true },
     isActive: { type: Boolean, default: true },
+    failedLoginAttempts: { type: Number, default: 0 },
+    lockUntil: { type: Date, default: null },
   },
   { timestamps: true },
 );

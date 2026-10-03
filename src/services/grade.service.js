@@ -19,6 +19,10 @@ export const createGrade = async ({
     throw new AppError("Course not found", 404);
   }
 
+  if (score > maxScore) {
+    throw new AppError("Score cannot exceed maximum score", 400);
+  }
+
   if (actor.role === ROLES.TEACHER) {
     if (!course.assignedTeacher || String(course.assignedTeacher) !== String(actor.id)) {
       throw new AppError("You are not assigned to this course", 403);
