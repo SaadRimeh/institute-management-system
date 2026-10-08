@@ -1,6 +1,55 @@
-node_modules
+# Root GitIgnore for Institute Management System
+
+# Node Modules (in root and any subfolder)
+node_modules/
+**/node_modules/
+
+# Environment configurations
 .env
+.env*.local
+**/.env
+**/.env*.local
+
+# Expo and build outputs
+.expo/
+**/.expo/
+dist/
+**/dist/
+web-build/
+**/web-build/
+expo-env.d.ts
+**/expo-env.d.ts
+
+# Logs and Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.log
+**/*.log
+
+# OS & Editor configurations
+.DS_Store
+Thumbs.db
+.vscode/
+**/.vscode/
+.idea/
+**/.idea/
+.claude/
+**/.claude/
+
+# Native builds & mobile certificates
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+/ios
+/android
+
+# TypeScript build info
+*.tsbuildinfo
+**/*.tsbuildinfo

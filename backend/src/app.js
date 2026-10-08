@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import mongoose from "mongoose";
 import morgan from "morgan";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
@@ -32,6 +33,8 @@ app.get("/health", (_req, res) => {
     success: true,
     status: "ok",
     environment: env.nodeEnv,
+    database: mongoose.connection?.readyState === 1 ? "connected" : "offline",
+    timestamp: new Date().toISOString(),
   });
 });
 
